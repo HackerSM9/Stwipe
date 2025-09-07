@@ -1,11 +1,12 @@
 import admin from "firebase-admin";
 
-// Initialize Firebase Admin SDK
+// Initialize Firebase Admin SDK only once
 if (!admin.apps.length) {
-  // For development, we can use the same project ID from the client config
-  // In production, you'd want to use a proper service account
+  // Load service account from environment variable
+  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string);
+
   admin.initializeApp({
-    projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+    credential: admin.credential.cert(serviceAccount),
   });
 }
 

@@ -1,7 +1,7 @@
 import { storage } from "../storage";
 import { filterContent } from "./contentFilter";
 import { insertStudyShortSchema, insertVideoSchema } from "@shared/schema";
-import { extractAudio } from "./ffmpegUtils";
+import { downloadAudio, cleanupFile } from "./ffmpegUtils";
 import ytdl from "ytdl-core";
 import fs from "fs";
 
@@ -12,12 +12,9 @@ interface ContentSegment {
   endTime: number;
 }
 
-/**
- * Simple segmentation logic: splits content into 3 parts per video
- */
 async function segmentContent(content: string, videoTitle: string): Promise<ContentSegment[]> {
   const words = content.split(" ");
-  const segmentSize = Math.ceil(words.length / 3);
+  const segmentSize = Math.ceil(words.length / 3); // 3 segments per video
   const segments: ContentSegment[] = [];
 
   for (let i = 0; i < 3; i++) {
@@ -38,9 +35,6 @@ async function segmentContent(content: string, videoTitle: string): Promise<Cont
   return segments;
 }
 
-/**
- * Processes a playlist of YouTube videos
- */
 export async function processPlaylist(
   playlistId: string,
   videoUrls: string[],
@@ -51,9 +45,10 @@ export async function processPlaylist(
     if (!playlist) throw new Error("Playlist not found");
 
     await storage.updatePlaylist(playlistId, { status: "processing" });
+
     const createdVideos = [];
 
-    // Step 1: Create video records
+    // Step 1: Create video entries in DB
     for (let i = 0; i < videoUrls.length; i++) {
       const url = videoUrls[i];
       const info = await ytdl.getInfo(url);
@@ -79,11 +74,10 @@ export async function processPlaylist(
       try {
         await storage.updateVideo(dbVideo.id, { status: "processing" });
 
-        // Extract audio using ffmpegUtils
-        const audioFile = await extractAudio(dbVideo.youtubeUrl, "./temp");
+        const audioFile = await downloadAudio(dbVideo.youtubeUrl, "./temp");
 
-        // Mock transcription for now (replace with real transcription API later)
-        const transcriptionText = `Transcription placeholder for ${dbVideo.title}`;
+        // You can replace this with your transcription method if you want
+        const transcriptionText = fs.readFileSync(audioFile, "utf-8"); // placeholder
 
         const filteredContent = await filterContent(transcriptionText, language);
         const segments = await segmentContent(filteredContent, dbVideo.title);
@@ -115,7 +109,7 @@ export async function processPlaylist(
 
         await storage.updatePlaylist(playlistId, { processedVideos: i + 1 });
 
-        fs.unlinkSync(audioFile); // cleanup
+        cleanupFile(audioFile);
       } catch (err) {
         console.error(`Error processing video ${dbVideo.title}:`, err);
         await storage.updateVideo(dbVideo.id, { status: "failed" });

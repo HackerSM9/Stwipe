@@ -38,12 +38,14 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private playlists: Map<string, Playlist>;
+  private videos: Map<string, Video>; // ADDED THIS
   private studyShorts: Map<string, StudyShort>;
   private userProgress: Map<string, UserProgress>;
 
   constructor() {
     this.users = new Map();
     this.playlists = new Map();
+    this.videos = new Map(); // ADDED THIS
     this.studyShorts = new Map();
     this.userProgress = new Map();
   }
@@ -71,7 +73,7 @@ export class MemStorage implements IStorage {
   async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
     const user = this.users.get(id);
     if (!user) return undefined;
-    
+
     const updatedUser = { ...user, ...updates };
     this.users.set(id, updatedUser);
     return updatedUser;
@@ -108,7 +110,7 @@ export class MemStorage implements IStorage {
   async updatePlaylist(id: string, updates: Partial<Playlist>): Promise<Playlist | undefined> {
     const playlist = this.playlists.get(id);
     if (!playlist) return undefined;
-    
+
     const updatedPlaylist = { ...playlist, ...updates };
     this.playlists.set(id, updatedPlaylist);
     return updatedPlaylist;
@@ -151,7 +153,7 @@ export class MemStorage implements IStorage {
   async updateVideo(id: string, updates: Partial<Video>): Promise<Video | undefined> {
     const video = this.videos.get(id);
     if (!video) return undefined;
-    
+
     const updatedVideo = { ...video, ...updates };
     this.videos.set(id, updatedVideo);
     return updatedVideo;
@@ -212,7 +214,7 @@ export class MemStorage implements IStorage {
   async updateUserProgress(userId: string, playlistId: string, updates: Partial<UserProgress>): Promise<UserProgress | undefined> {
     const progress = await this.getUserProgress(userId, playlistId);
     if (!progress) return undefined;
-    
+
     const updatedProgress = { ...progress, ...updates };
     this.userProgress.set(progress.id, updatedProgress);
     return updatedProgress;
@@ -221,25 +223,25 @@ export class MemStorage implements IStorage {
   async getUserStats(userId: string): Promise<{ totalShorts: number; hoursStudied: number; streak: number }> {
     const userProgressList = Array.from(this.userProgress.values())
       .filter(progress => progress.userId === userId);
-    
+
     const totalShorts = userProgressList.reduce((sum, progress) => {
       return sum + (Array.isArray(progress.completedShorts) ? progress.completedShorts.length : 0);
     }, 0);
-    
+
     const totalTimeSpent = userProgressList.reduce((sum, progress) => {
       return sum + (progress.totalTimeSpent || 0);
     }, 0);
-    
+
     const hoursStudied = Math.round((totalTimeSpent / 3600) * 10) / 10;
-    
+
     // Simple streak calculation - days with study activity
     const recentStudyDates = userProgressList
       .filter(progress => progress.lastStudiedAt)
       .map(progress => new Date(progress.lastStudiedAt!).toDateString())
       .filter((date, index, array) => array.indexOf(date) === index);
-    
+
     const streak = recentStudyDates.length;
-    
+
     return { totalShorts, hoursStudied, streak };
   }
 }

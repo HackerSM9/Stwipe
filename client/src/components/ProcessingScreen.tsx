@@ -29,10 +29,9 @@ export default function ProcessingScreen({ playlistId, onComplete, onCancel }: P
       
       setProgress(progressPercentage);
 
+      // Call onComplete immediately when completed
       if (playlist.status === "completed") {
-        setTimeout(() => {
-          onComplete();
-        }, 1000);
+        onComplete();
       }
     }
   }, [playlist, onComplete]);

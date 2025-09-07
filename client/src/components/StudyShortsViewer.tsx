@@ -127,9 +127,7 @@ export default function StudyShortsViewer({ playlistId, onBack }: StudyShortsVie
     const handleEnded = () => {
       setIsPlaying(false);
       // Auto advance to next short
-      setTimeout(() => {
-        nextShort();
-      }, 1000);
+      nextShort();
     };
 
     video.addEventListener('timeupdate', handleTimeUpdate);
@@ -225,7 +223,6 @@ export default function StudyShortsViewer({ playlistId, onBack }: StudyShortsVie
 
       {/* Video Container */}
       <div className="relative w-full h-screen bg-black flex items-center justify-center">
-        {/* Placeholder for video player - in real implementation, this would be the actual video */}
         <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
           <div className="text-center text-white">
             <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-4 mx-auto">
@@ -244,14 +241,12 @@ export default function StudyShortsViewer({ playlistId, onBack }: StudyShortsVie
           </div>
         </div>
 
-        {/* Hidden video element for audio playback */}
         <video
           ref={videoRef}
           className="hidden"
           src={`/api/shorts/${currentShort.id}/video`}
         />
 
-        {/* Swipe Indicators */}
         <div className="absolute left-4 top-1/2 transform -translate-y-1/2 opacity-0 hover:opacity-100 transition-opacity">
           <div className="bg-primary/80 rounded-full w-15 h-15 flex items-center justify-center text-white">
             <ChevronLeft className="w-6 h-6" />
@@ -263,10 +258,8 @@ export default function StudyShortsViewer({ playlistId, onBack }: StudyShortsVie
           </div>
         </div>
 
-        {/* Video Controls Overlay */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent">
           <div className="p-4">
-            {/* Progress Bar */}
             <div className="flex items-center space-x-3 mb-4">
               <span className="text-white text-xs" data-testid="text-current-time">
                 {formatTime(currentTime)}
@@ -282,7 +275,6 @@ export default function StudyShortsViewer({ playlistId, onBack }: StudyShortsVie
               </span>
             </div>
 
-            {/* Playback Controls */}
             <div className="flex items-center justify-center space-x-6">
               <Button
                 variant="ghost"
@@ -321,7 +313,6 @@ export default function StudyShortsViewer({ playlistId, onBack }: StudyShortsVie
         </div>
       </div>
 
-      {/* Bottom Navigation */}
       <div className="absolute bottom-4 left-4 right-4 z-20">
         <div className="flex items-center justify-between bg-black/50 backdrop-blur-sm rounded-full px-6 py-3">
           <Button
@@ -337,7 +328,6 @@ export default function StudyShortsViewer({ playlistId, onBack }: StudyShortsVie
 
           <div className="text-center">
             <div className="flex items-center space-x-1">
-              {/* Progress dots for shorts */}
               {shorts.slice(Math.max(0, currentIndex - 2), currentIndex + 3).map((_, index) => {
                 const actualIndex = Math.max(0, currentIndex - 2) + index;
                 return (
@@ -367,7 +357,6 @@ export default function StudyShortsViewer({ playlistId, onBack }: StudyShortsVie
         </div>
       </div>
 
-      {/* Topic Information Overlay */}
       {showTopicInfo && (
         <div 
           className="absolute inset-0 bg-black/80 backdrop-blur-sm z-30 p-6 flex items-center justify-center"

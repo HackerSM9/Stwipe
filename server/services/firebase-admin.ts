@@ -1,18 +1,17 @@
 import admin from "firebase-admin";
-import path from "path";
+import serviceAccount from "./firebase-service-account.json" assert { type: "json" };
 
 if (!admin.apps.length) {
   let credential;
 
   if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    // Production: load from env
+    // ✅ Production: load from env
     credential = admin.credential.cert(
       JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string)
     );
   } else {
-    // Local: load from file
-    const serviceAccountPath = path.resolve(__dirname, "firebase-service-account.json");
-    credential = admin.credential.cert(serviceAccountPath);
+    // ✅ Local: load from JSON file
+    credential = admin.credential.cert(serviceAccount as admin.ServiceAccount);
   }
 
   admin.initializeApp({ credential });

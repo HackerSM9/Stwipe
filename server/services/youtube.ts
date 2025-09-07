@@ -1,21 +1,25 @@
+import { config } from "dotenv";
+config(); // load .env
+
 import { storage } from "../storage";
 import { filterContent } from "./contentFilter";
 import { insertStudyShortSchema, insertVideoSchema } from "@shared/schema";
-import { downloadAudio, cleanupFile } from "./ffmpegUtils";
 import ytdl from "ytdl-core";
 import fs from "fs";
+import path from "path";
+import { downloadAudioWithFFmpeg } from "./ffmpegUtils";
 
-interface ContentSegment {
-  topic: string;
-  content: string;
-  startTime: number;
-  endTime: number;
+interface YouTubeVideo {
+  id: string;
+  title: string;
+  duration: number;
+  url: string;
 }
 
-async function segmentContent(content: string, videoTitle: string): Promise<ContentSegment[]> {
+async function segmentContent(content: string, videoTitle: string) {
   const words = content.split(" ");
-  const segmentSize = Math.ceil(words.length / 3); // 3 segments per video
-  const segments: ContentSegment[] = [];
+  const segmentSize = Math.ceil(words.length / 3);
+  const segments = [];
 
   for (let i = 0; i < 3; i++) {
     const startIndex = i * segmentSize;
@@ -35,11 +39,7 @@ async function segmentContent(content: string, videoTitle: string): Promise<Cont
   return segments;
 }
 
-export async function processPlaylist(
-  playlistId: string,
-  videoUrls: string[],
-  language: string = "hinglish"
-) {
+export async function processPlaylist(playlistId: string, videoUrls: string[], language: string = "hinglish") {
   try {
     const playlist = await storage.getPlaylist(playlistId);
     if (!playlist) throw new Error("Playlist not found");
@@ -47,8 +47,6 @@ export async function processPlaylist(
     await storage.updatePlaylist(playlistId, { status: "processing" });
 
     const createdVideos = [];
-
-    // Step 1: Create video entries in DB
     for (let i = 0; i < videoUrls.length; i++) {
       const url = videoUrls[i];
       const info = await ytdl.getInfo(url);
@@ -68,18 +66,16 @@ export async function processPlaylist(
       createdVideos.push(dbVideo);
     }
 
-    // Step 2: Process each video
     for (let i = 0; i < createdVideos.length; i++) {
       const dbVideo = createdVideos[i];
       try {
         await storage.updateVideo(dbVideo.id, { status: "processing" });
 
-        const audioFile = await downloadAudio(dbVideo.youtubeUrl, "./temp");
+        const audioFile = await downloadAudioWithFFmpeg(dbVideo.youtubeUrl, "./temp");
 
-        // You can replace this with your transcription method if you want
-        const transcriptionText = fs.readFileSync(audioFile, "utf-8"); // placeholder
+        const transcription = fs.readFileSync(audioFile, "utf-8"); // your transcription logic can replace this
+        const filteredContent = await filterContent(transcription, language);
 
-        const filteredContent = await filterContent(transcriptionText, language);
         const segments = await segmentContent(filteredContent, dbVideo.title);
         const videoShorts = [];
 
@@ -108,8 +104,7 @@ export async function processPlaylist(
         });
 
         await storage.updatePlaylist(playlistId, { processedVideos: i + 1 });
-
-        cleanupFile(audioFile);
+        fs.unlinkSync(audioFile);
       } catch (err) {
         console.error(`Error processing video ${dbVideo.title}:`, err);
         await storage.updateVideo(dbVideo.id, { status: "failed" });

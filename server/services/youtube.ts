@@ -1,37 +1,9 @@
 import { storage } from "../storage";
-import { transcribeAudio } from "./whisper";
 import { filterContent } from "./contentFilter";
 import { insertStudyShortSchema, insertVideoSchema } from "@shared/schema";
+import { extractAudio } from "./ffmpegUtils";
 import ytdl from "ytdl-core";
-import ffmpeg from "fluent-ffmpeg";
 import fs from "fs";
-import path from "path";
-
-interface YouTubeVideo {
-  id: string;
-  title: string;
-  duration: number; // seconds
-  url: string;
-}
-
-async function fetchPlaylistVideos(playlistId: string): Promise<YouTubeVideo[]> {
-  // Replace this with real YouTube API logic if you want
-  // For now, using ytdl-core to get info from video URLs
-  throw new Error("Implement YouTube API fetch here or pass an array of video URLs");
-}
-
-async function downloadAudio(videoUrl: string, outputDir: string): Promise<string> {
-  const tempFile = path.join(outputDir, `${Date.now()}.mp3`);
-  
-  return new Promise((resolve, reject) => {
-    const stream = ytdl(videoUrl, { filter: 'audioonly' });
-    ffmpeg(stream)
-      .audioBitrate(128)
-      .save(tempFile)
-      .on("end", () => resolve(tempFile))
-      .on("error", (err) => reject(err));
-  });
-}
 
 interface ContentSegment {
   topic: string;
@@ -40,9 +12,12 @@ interface ContentSegment {
   endTime: number;
 }
 
+/**
+ * Simple segmentation logic: splits content into 3 parts per video
+ */
 async function segmentContent(content: string, videoTitle: string): Promise<ContentSegment[]> {
   const words = content.split(" ");
-  const segmentSize = Math.ceil(words.length / 3); // 3 segments per video
+  const segmentSize = Math.ceil(words.length / 3);
   const segments: ContentSegment[] = [];
 
   for (let i = 0; i < 3; i++) {
@@ -54,7 +29,7 @@ async function segmentContent(content: string, videoTitle: string): Promise<Cont
       segments.push({
         topic: `${videoTitle} - Concept ${i + 1}`,
         content: segmentWords.join(" "),
-        startTime: i * 180, // example 3 minutes
+        startTime: i * 180,
         endTime: (i + 1) * 180,
       });
     }
@@ -63,14 +38,22 @@ async function segmentContent(content: string, videoTitle: string): Promise<Cont
   return segments;
 }
 
-export async function processPlaylist(playlistId: string, videoUrls: string[], language: string = "hinglish") {
+/**
+ * Processes a playlist of YouTube videos
+ */
+export async function processPlaylist(
+  playlistId: string,
+  videoUrls: string[],
+  language: string = "hinglish"
+) {
   try {
     const playlist = await storage.getPlaylist(playlistId);
     if (!playlist) throw new Error("Playlist not found");
 
     await storage.updatePlaylist(playlistId, { status: "processing" });
-
     const createdVideos = [];
+
+    // Step 1: Create video records
     for (let i = 0; i < videoUrls.length; i++) {
       const url = videoUrls[i];
       const info = await ytdl.getInfo(url);
@@ -90,16 +73,19 @@ export async function processPlaylist(playlistId: string, videoUrls: string[], l
       createdVideos.push(dbVideo);
     }
 
+    // Step 2: Process each video
     for (let i = 0; i < createdVideos.length; i++) {
       const dbVideo = createdVideos[i];
       try {
         await storage.updateVideo(dbVideo.id, { status: "processing" });
 
-        const audioFile = await downloadAudio(dbVideo.youtubeUrl, "./temp");
+        // Extract audio using ffmpegUtils
+        const audioFile = await extractAudio(dbVideo.youtubeUrl, "./temp");
 
-        const transcription = await transcribeAudio(fs.readFileSync(audioFile), language);
-        const filteredContent = await filterContent(transcription.text, language);
+        // Mock transcription for now (replace with real transcription API later)
+        const transcriptionText = `Transcription placeholder for ${dbVideo.title}`;
 
+        const filteredContent = await filterContent(transcriptionText, language);
         const segments = await segmentContent(filteredContent, dbVideo.title);
         const videoShorts = [];
 
@@ -128,6 +114,7 @@ export async function processPlaylist(playlistId: string, videoUrls: string[], l
         });
 
         await storage.updatePlaylist(playlistId, { processedVideos: i + 1 });
+
         fs.unlinkSync(audioFile); // cleanup
       } catch (err) {
         console.error(`Error processing video ${dbVideo.title}:`, err);
